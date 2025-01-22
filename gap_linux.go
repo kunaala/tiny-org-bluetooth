@@ -59,7 +59,7 @@ func (a *Advertisement) Configure(options AdvertisementOptions) error {
 	}
 
 	// Convert map[uint16][]byte to map[uint16]any because that's what BlueZ needs.
-	manufacturerData := map[uint16]interface{}
+	manufacturerData := make(map[uint16]interface{})
 	for _, element := range options.ManufacturerData {
 		manufacturerData[element.CompanyID] = element.Data
 	}
