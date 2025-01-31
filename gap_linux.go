@@ -213,81 +213,73 @@ func (a *Adapter) Scan(callback func(*Adapter, ScanResult)) error {
 		case <-cancelChan:
 			return a.adapter.Call("org.bluez.Adapter1.StopDiscovery", 0).Err
 		default:
-		}
 
-		for {
-			select {
-			case <-cancelChan:
-				fmt.Println("Stopping BLE scan...")
-				return a.adapter.Call("org.bluez.Adapter1.StopDiscovery", 0).Err
-			default:
-				// Fetch the list of currently detected devices
-				var deviceList map[dbus.ObjectPath]map[string]map[string]dbus.Variant
-				err = a.bluez.Call("org.freedesktop.DBus.ObjectManager.GetManagedObjects", 0).Store(&deviceList)
-				if err != nil {
-					fmt.Println("[ERR] Fetching device list:", err)
+			// Fetch the list of currently detected devices
+			var deviceList map[dbus.ObjectPath]map[string]map[string]dbus.Variant
+			err = a.bluez.Call("org.freedesktop.DBus.ObjectManager.GetManagedObjects", 0).Store(&deviceList)
+			if err != nil {
+				fmt.Println("[ERR] Fetching device list:", err)
+				continue
+			}
+
+			// Iterate through detected devices
+			for path, v := range deviceList {
+				device, ok := v["org.bluez.Device1"]
+				if !ok {
+					continue // Not a Bluetooth device
+				}
+
+				// Ensure device belongs to the correct adapter
+				if !strings.HasPrefix(string(path), string(a.adapter.Path())) {
 					continue
 				}
 
-				// Iterate through detected devices
-				for path, v := range deviceList {
-					device, ok := v["org.bluez.Device1"]
-					if !ok {
-						continue // Not a Bluetooth device
-					}
-
-					// Ensure device belongs to the correct adapter
-					if !strings.HasPrefix(string(path), string(a.adapter.Path())) {
-						continue
-					}
-
-					// Process the device and send it to the callback
-					callback(a, makeScanResult(device))
-				}
-
-				// Poll every 10 milliseconds (adjust timing as needed)
-				time.Sleep(10 * time.Millisecond)
+				// Process the device and send it to the callback
+				callback(a, makeScanResult(device))
 			}
+
+			// Poll every 10 milliseconds (adjust timing as needed)
+			time.Sleep(10 * time.Millisecond)
 		}
-
-		// No longer doing event based scans
-		// select {
-		// case sig := <-signal:
-		// 	// This channel receives anything that we watch for, so we'll have
-		// 	// to check for signals that are relevant to us.
-		// 	switch sig.Name {
-		// 	case "org.freedesktop.DBus.ObjectManager.InterfacesAdded":
-		// 		objectPath := sig.Body[0].(dbus.ObjectPath)
-		// 		interfaces := sig.Body[1].(map[string]map[string]dbus.Variant)
-		// 		rawprops, ok := interfaces["org.bluez.Device1"]
-		// 		if !ok {
-		// 			continue
-		// 		}
-		// 		devices[objectPath] = rawprops
-		// 		callback(a, makeScanResult(rawprops))
-		// 	case "org.freedesktop.DBus.Properties.PropertiesChanged":
-		// 		interfaceName := sig.Body[0].(string)
-		// 		if interfaceName != "org.bluez.Device1" {
-		// 			continue
-		// 		}
-		// 		changes := sig.Body[1].(map[string]dbus.Variant)
-		// 		device, ok := devices[sig.Path]
-		// 		if !ok {
-		// 			// This shouldn't happen, but protect against it just in
-		// 			// case.
-		// 			continue
-		// 		}
-		// 		for k, v := range changes {
-		// 			device[k] = v
-		// 		}
-		// 		callback(a, makeScanResult(device))
-		// 	}
-		// case <-cancelChan:
-		// 	continue
-		//}
-
-		// unreachable
 	}
+
+	// No longer doing event based scans
+	// select {
+	// case sig := <-signal:
+	// 	// This channel receives anything that we watch for, so we'll have
+	// 	// to check for signals that are relevant to us.
+	// 	switch sig.Name {
+	// 	case "org.freedesktop.DBus.ObjectManager.InterfacesAdded":
+	// 		objectPath := sig.Body[0].(dbus.ObjectPath)
+	// 		interfaces := sig.Body[1].(map[string]map[string]dbus.Variant)
+	// 		rawprops, ok := interfaces["org.bluez.Device1"]
+	// 		if !ok {
+	// 			continue
+	// 		}
+	// 		devices[objectPath] = rawprops
+	// 		callback(a, makeScanResult(rawprops))
+	// 	case "org.freedesktop.DBus.Properties.PropertiesChanged":
+	// 		interfaceName := sig.Body[0].(string)
+	// 		if interfaceName != "org.bluez.Device1" {
+	// 			continue
+	// 		}
+	// 		changes := sig.Body[1].(map[string]dbus.Variant)
+	// 		device, ok := devices[sig.Path]
+	// 		if !ok {
+	// 			// This shouldn't happen, but protect against it just in
+	// 			// case.
+	// 			continue
+	// 		}
+	// 		for k, v := range changes {
+	// 			device[k] = v
+	// 		}
+	// 		callback(a, makeScanResult(device))
+	// 	}
+	// case <-cancelChan:
+	// 	continue
+	//}
+
+	// unreachable
 }
 
 // StopScan stops any in-progress scan. It can be called from within a Scan
