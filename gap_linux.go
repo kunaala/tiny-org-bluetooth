@@ -213,7 +213,8 @@ func (a *Adapter) Scan(callback func(*Adapter, ScanResult)) error {
 			err = a.adapter.Call("org.bluez.Adapter1.StartDiscovery", 0).Err
 			if err != nil {
 				fmt.Println("[ERR] Unable to start discovery:", err)
-				return err
+				time.Sleep(1 * time.Second)
+				continue
 			}
 			// Fetch the list of currently detected devices
 			var deviceList map[dbus.ObjectPath]map[string]map[string]dbus.Variant
@@ -243,7 +244,8 @@ func (a *Adapter) Scan(callback func(*Adapter, ScanResult)) error {
 			err = a.adapter.Call("org.bluez.Adapter1.StopDiscovery", 0).Err
 			if err != nil {
 				fmt.Println("[ERR] Unable to stop discovery:", err)
-				return err
+				time.Sleep(1 * time.Second)
+				continue
 			}
 			// Poll every 10 milliseconds (adjust timing as needed)
 			time.Sleep(10 * time.Millisecond)
