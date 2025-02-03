@@ -198,12 +198,6 @@ func (a *Adapter) Scan(callback func(*Adapter, ScanResult)) error {
 		devices[path] = device
 	}
 
-	// Instruct BlueZ to start discovering.
-	err = a.adapter.Call("org.bluez.Adapter1.StartDiscovery", 0).Err
-	if err != nil {
-		return err
-	}
-
 	for {
 		// Check whether the scan is stopped. This is necessary to avoid a race
 		// condition between the signal channel and the cancelScan channel when
@@ -214,6 +208,13 @@ func (a *Adapter) Scan(callback func(*Adapter, ScanResult)) error {
 			return a.adapter.Call("org.bluez.Adapter1.StopDiscovery", 0).Err
 		default:
 
+			// Instruct BlueZ to start discovering.
+			fmt.Println("Starting discovery", time.Now())
+			err = a.adapter.Call("org.bluez.Adapter1.StartDiscovery", 0).Err
+			if err != nil {
+				fmt.Println("[ERR] Unable to start discovery:", err)
+				return err
+			}
 			// Fetch the list of currently detected devices
 			var deviceList map[dbus.ObjectPath]map[string]map[string]dbus.Variant
 			err = a.bluez.Call("org.freedesktop.DBus.ObjectManager.GetManagedObjects", 0).Store(&deviceList)
@@ -238,8 +239,15 @@ func (a *Adapter) Scan(callback func(*Adapter, ScanResult)) error {
 				callback(a, makeScanResult(device))
 			}
 
+			// Instruct BlueZ to stop discovering.
+			err = a.adapter.Call("org.bluez.Adapter1.StopDiscovery", 0).Err
+			if err != nil {
+				fmt.Println("[ERR] Unable to stop discovery:", err)
+				return err
+			}
 			// Poll every 10 milliseconds (adjust timing as needed)
 			time.Sleep(10 * time.Millisecond)
+
 		}
 	}
 
